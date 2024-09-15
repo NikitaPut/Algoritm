@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include <map>
+#include <functional>
 
 // Точка
 struct Point {
@@ -78,12 +80,13 @@ Polygon readPolygonFromInput() {
     int num_points;
     std::cin >> num_points; // Считываем количество вершин многоугольника
 
-    for (int i = 0; i < num_points; ++i) {
-        char ch;
+    // Используем std::generate_n для генерации точек и добавления их в polygon.points
+    std::generate_n(std::back_inserter(polygon.points), num_points, []() {
         Point p;
+        char ch;
         std::cin >> ch >> p.x >> ch >> p.y >> ch; // Чтение координат в формате (x;y)
-        polygon.points.push_back(p);
-    }
+        return p;
+        });
 
     return polygon;
 }
@@ -92,22 +95,26 @@ std::vector<Polygon> readPolygonsFromFile(const std::string& filename) {
     std::ifstream file(filename);
     std::vector<Polygon> polygons;
 
-    std::string line;
-    while (std::getline(file, line)) {
+    std::istream_iterator<std::string> file_iter(file), end;
+
+    // Преобразуем каждую строку в файл в многоугольник
+    std::transform(file_iter, end, std::back_inserter(polygons), [](const std::string& line) {
         std::istringstream iss(line);
         Polygon poly;
         int num_points;
         iss >> num_points;
 
-        for (int i = 0; i < num_points; ++i) {
-            char ch;
+        // Преобразуем каждую пару координат в точку и добавляем в полигон
+        std::generate_n(std::back_inserter(poly.points), num_points, [&iss]() {
             Point p;
+            char ch;
             iss >> ch >> p.x >> ch >> p.y >> ch;
-            poly.points.push_back(p);
-        }
+            return p;
+            });
 
-        polygons.push_back(poly);
-    }
+        return poly;
+        });
+
     return polygons;
 }
 
@@ -117,33 +124,45 @@ void calculateArea(const std::vector<Polygon>& polygons, const std::string& type
 
     if (type == "EVEN" || type == "ODD") {
         bool is_even = (type == "EVEN");
-        for (const auto& poly : polygons) {
-            if ((poly.points.size() % 2 == 0) == is_even) {
-                total_area += poly.area();
-                ++count;
-            }
-        }
+
+        // Используем std::accumulate для вычисления суммы площадей нужных многоугольников
+        total_area = std::accumulate(polygons.begin(), polygons.end(), 0.0,
+            [is_even, &count](double sum, const Polygon& poly) {
+                if ((poly.points.size() % 2 == 0) == is_even) {
+                    ++count;
+                    return sum + poly.area();
+                }
+                return sum;
+            });
     }
     else if (type == "MEAN") {
         if (polygons.empty()) {
             std::cerr << "No polygons available\n";
             return;
         }
-        for (const auto& poly : polygons) {
-            total_area += poly.area();
-        }
+
+        // Используем std::accumulate для вычисления суммы площадей всех многоугольников
+        total_area = std::accumulate(polygons.begin(), polygons.end(), 0.0,
+            [](double sum, const Polygon& poly) {
+                return sum + poly.area();
+            });
+
         std::cout << total_area / polygons.size() << "\n";
         return;
     }
     else {
         try {
             int num_vertices = std::stoi(type);
-            for (const auto& poly : polygons) {
-                if (poly.points.size() == num_vertices) {
-                    total_area += poly.area();
-                    ++count;
-                }
-            }
+
+            // Используем std::accumulate для вычисления суммы площадей многоугольников с заданным количеством вершин
+            total_area = std::accumulate(polygons.begin(), polygons.end(), 0.0,
+                [num_vertices, &count](double sum, const Polygon& poly) {
+                    if (poly.points.size() == num_vertices) {
+                        ++count;
+                        return sum + poly.area();
+                    }
+                    return sum;
+                });
         }
         catch (const std::invalid_argument&) {
             std::cerr << "Invalid type argument\n";
@@ -221,35 +240,34 @@ void countPolygons(const std::vector<Polygon>& polygons, const std::string& type
 }
 
 void removeConsecutiveDuplicates(std::vector<Polygon>& polygons, const Polygon& target) {
-    int removed_count = 0;
+    // Используем std::unique для удаления всех идущих подряд дубликатов target
+    auto new_end = std::unique(polygons.begin(), polygons.end(), [&](const Polygon& a, const Polygon& b) {
+        return a == target && b == target;
+        });
 
-    for (auto it = polygons.begin(); it != polygons.end(); ++it) {
-        // Если текущий элемент равен target
-        if (*it == target) {
-            // Удаляем все идущие подряд дубликаты
-            it = std::adjacent_find(it, polygons.end(), [&](const Polygon& a, const Polygon& b) {
-                return a == target && b == target;
-                });
+    // Удаляем лишние элементы из вектора
+    int removed_count = std::distance(new_end, polygons.end());
+    polygons.erase(new_end, polygons.end());
 
-            // Если найдены дубликаты
-            if (it != polygons.end()) {
-                it = polygons.erase(it + 1);
-                ++removed_count;
-            }
-        }
-    }
-
+    // Выводим количество удаленных элементов
     std::cout << removed_count << "\n";
 }
 
 void echoPolygon(std::vector<Polygon>& polygons, const Polygon& target) {
+    // Используем std::find для поиска первого вхождения target
+    auto it = std::find(polygons.begin(), polygons.end(), target);
     int added_count = 0;
-    for (auto it = polygons.begin(); it != polygons.end(); ++it) {
-        if (*it == target) {
-            it = polygons.insert(it + 1, target); // Вставляем копию после текущего элемента
-            ++added_count;
-        }
+
+    // Пока мы находим элементы target
+    while (it != polygons.end()) {
+        // Вставляем копию target после текущего вхождения
+        it = polygons.insert(it + 1, target);
+        ++added_count;
+        // Ищем следующее вхождение после вставленного элемента
+        it = std::find(it + 1, polygons.end(), target);
     }
+
+    // Выводим количество добавленных элементов
     std::cout << added_count << "\n";
 }
 
@@ -261,20 +279,40 @@ void lessArea(const std::vector<Polygon>& polygons, const Polygon& target) {
 }
 
 void inFrame(const std::vector<Polygon>& polygons, const Polygon& target) {
-    // Найдём минимальные и максимальные координаты для всех сохранённых фигур
-    int min_x = std::numeric_limits<int>::max(), max_x = std::numeric_limits<int>::min();
-    int min_y = std::numeric_limits<int>::max(), max_y = std::numeric_limits<int>::min();
+    // Используем std::minmax_element для нахождения минимальных и максимальных координат
+    auto x_minmax = std::minmax_element(polygons.begin(), polygons.end(), [](const Polygon& a, const Polygon& b) {
+        return std::min_element(a.points.begin(), a.points.end(), [](const Point& p1, const Point& p2) {
+            return p1.x < p2.x;
+            })->x < std::min_element(b.points.begin(), b.points.end(), [](const Point& p1, const Point& p2) {
+                return p1.x < p2.x;
+                })->x;
+        });
 
-    for (const auto& poly : polygons) {
-        for (const auto& point : poly.points) {
-            min_x = std::min(min_x, point.x);
-            max_x = std::max(max_x, point.x);
-            min_y = std::min(min_y, point.y);
-            max_y = std::max(max_y, point.y);
-        }
-    }
+    auto y_minmax = std::minmax_element(polygons.begin(), polygons.end(), [](const Polygon& a, const Polygon& b) {
+        return std::min_element(a.points.begin(), a.points.end(), [](const Point& p1, const Point& p2) {
+            return p1.y < p2.y;
+            })->y < std::min_element(b.points.begin(), b.points.end(), [](const Point& p1, const Point& p2) {
+                return p1.y < p2.y;
+                })->y;
+        });
 
-    // Проверяем, лежат ли все точки целевого многоугольника внутри ограничивающего прямоугольника
+    int min_x = std::min_element((*x_minmax.first).points.begin(), (*x_minmax.first).points.end(), [](const Point& p1, const Point& p2) {
+        return p1.x < p2.x;
+        })->x;
+
+    int max_x = std::max_element((*x_minmax.second).points.begin(), (*x_minmax.second).points.end(), [](const Point& p1, const Point& p2) {
+        return p1.x < p2.x;
+        })->x;
+
+    int min_y = std::min_element((*y_minmax.first).points.begin(), (*y_minmax.first).points.end(), [](const Point& p1, const Point& p2) {
+        return p1.y < p2.y;
+        })->y;
+
+    int max_y = std::max_element((*y_minmax.second).points.begin(), (*y_minmax.second).points.end(), [](const Point& p1, const Point& p2) {
+        return p1.y < p2.y;
+        })->y;
+
+    // Используем std::all_of для проверки, находятся ли все точки целевого многоугольника внутри ограничивающего прямоугольника
     bool inside = std::all_of(target.points.begin(), target.points.end(), [&](const Point& p) {
         return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
         });
@@ -317,6 +355,7 @@ void countRightShapes(const std::vector<Polygon>& polygons) {
         });
     std::cout << count << "\n";
 }
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Please provide a filename" << "\n";
@@ -326,57 +365,65 @@ int main(int argc, char* argv[]) {
     std::string filename = argv[1];
     std::vector<Polygon> polygons = readPolygonsFromFile(filename);
 
-    std::string command;
-    while (std::cin >> command) {
-        if (command == "AREA") {
+    // Определяем мапу для команд и соответствующих функций
+    std::map<std::string, std::function<void()>> command_map = {
+        {"AREA", [&]() {
             std::string type;
             std::cin >> type;
             calculateArea(polygons, type);
-        }
-        else if (command == "MAX") {
+        }},
+        {"MAX", [&]() {
             std::string type;
             std::cin >> type;
             calculateMax(polygons, type);
-        }
-        else if (command == "MIN") {
+        }},
+        {"MIN", [&]() {
             std::string type;
             std::cin >> type;
             calculateMin(polygons, type);
-        }
-        else if (command == "COUNT") {
+        }},
+        {"COUNT", [&]() {
             std::string type;
             std::cin >> type;
             countPolygons(polygons, type);
-        }
-        else if (command == "RMECHO") {
+        }},
+        {"RMECHO", [&]() {
             Polygon target = readPolygonFromInput();
             removeConsecutiveDuplicates(polygons, target);
-        }
-        else if (command == "ECHO") {
+        }},
+        {"ECHO", [&]() {
             Polygon target = readPolygonFromInput();
             echoPolygon(polygons, target);
-        }
-        else if (command == "LESSAREA") {
+        }},
+        {"LESSAREA", [&]() {
             Polygon target = readPolygonFromInput();
             lessArea(polygons, target);
-        }
-        else if (command == "INFRAME") {
+        }},
+        {"INFRAME", [&]() {
             Polygon target = readPolygonFromInput();
             inFrame(polygons, target);
-        }
-        else if (command == "INTERSECTIONS") {
+        }},
+        {"INTERSECTIONS", [&]() {
             Polygon target = readPolygonFromInput();
             intersections(polygons, target);
-        }
-        else if (command == "SAME") {
+        }},
+        {"SAME", [&]() {
             Polygon target = readPolygonFromInput();
             samePolygons(polygons, target);
-        }
-        else if (command == "RECTS") {
+        }},
+        {"RECTS", [&]() {
             countRectangles(polygons);
-        }
-        else if (command == "RIGHTSHAPES") {
+        }},
+        {"RIGHTSHAPES", [&]() {
             countRightShapes(polygons);
+        }}
+    };
+
+    std::string command;
+    while (std::cin >> command) {
+        auto it = command_map.find(command);
+        if (it != command_map.end()) {
+            it->second();  // Выполняем соответствующую функцию
         }
         else {
             std::cout << "<INVALID COMMAND>" << "\n";
