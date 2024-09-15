@@ -112,44 +112,51 @@ std::vector<Polygon> readPolygonsFromFile(const std::string& filename) {
 }
 
 void calculateArea(const std::vector<Polygon>& polygons, const std::string& type) {
-    if (type == "EVEN") {
-        double total_area = 0.0;
+    double total_area = 0.0;
+    int count = 0;
+
+    if (type == "EVEN" || type == "ODD") {
+        bool is_even = (type == "EVEN");
         for (const auto& poly : polygons) {
-            if (poly.points.size() % 2 == 0) {
+            if ((poly.points.size() % 2 == 0) == is_even) {
                 total_area += poly.area();
+                ++count;
             }
         }
-        std::cout << total_area << "\n";
-    }
-    else if (type == "ODD") {
-        double total_area = 0.0;
-        for (const auto& poly : polygons) {
-            if (poly.points.size() % 2 != 0) {
-                total_area += poly.area();
-            }
-        }
-        std::cout << total_area << "\n";
     }
     else if (type == "MEAN") {
         if (polygons.empty()) {
-            std::cerr << "No polygons available" << "\n";
+            std::cerr << "No polygons available\n";
             return;
         }
-        double total_area = 0.0;
         for (const auto& poly : polygons) {
             total_area += poly.area();
         }
         std::cout << total_area / polygons.size() << "\n";
+        return;
     }
     else {
-        int num_vertices = std::stoi(type);
-        double total_area = 0.0;
-        for (const auto& poly : polygons) {
-            if (poly.points.size() == num_vertices) {
-                total_area += poly.area();
+        try {
+            int num_vertices = std::stoi(type);
+            for (const auto& poly : polygons) {
+                if (poly.points.size() == num_vertices) {
+                    total_area += poly.area();
+                    ++count;
+                }
             }
         }
+        catch (const std::invalid_argument&) {
+            std::cerr << "Invalid type argument\n";
+            return;
+        }
+    }
+
+    // Вывод результата для случаев "EVEN", "ODD" или по числу вершин
+    if (count > 0) {
         std::cout << total_area << "\n";
+    }
+    else {
+        std::cout << "No matching polygons found\n";
     }
 }
 
