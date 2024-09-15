@@ -223,18 +223,20 @@ void countPolygons(const std::vector<Polygon>& polygons, const std::string& type
 void removeConsecutiveDuplicates(std::vector<Polygon>& polygons, const Polygon& target) {
     int removed_count = 0;
 
-    auto it = polygons.begin();
-    while (it != polygons.end()) {
-        // Найдем первый экземпляр многоугольника, идентичного target
+    for (auto it = polygons.begin(); it != polygons.end(); ++it) {
+        // Если текущий элемент равен target
         if (*it == target) {
-            auto next_it = it + 1;
-            // Удаляем идущие подряд дубликаты
-            while (next_it != polygons.end() && *next_it == target) {
-                next_it = polygons.erase(next_it);
+            // Удаляем все идущие подряд дубликаты
+            it = std::adjacent_find(it, polygons.end(), [&](const Polygon& a, const Polygon& b) {
+                return a == target && b == target;
+                });
+
+            // Если найдены дубликаты
+            if (it != polygons.end()) {
+                it = polygons.erase(it + 1);
                 ++removed_count;
             }
         }
-        ++it;
     }
 
     std::cout << removed_count << "\n";
