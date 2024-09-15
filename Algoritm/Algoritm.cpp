@@ -31,12 +31,17 @@ struct Polygon {
     double area() const {
         double sum = 0.0;
         int n = points.size();
+
+        // Цикл с предвычислением индексов и использованием ссылок
         for (int i = 0; i < n; ++i) {
-            int j = (i + 1) % n;
-            sum += points[i].x * points[j].y - points[j].x * points[i].y;
+            const Point& p1 = points[i];
+            const Point& p2 = points[(i + 1) % n];  // Следующая точка с замыканием на начало
+            sum += p1.x * p2.y - p2.x * p1.y;
         }
+
         return std::abs(sum) / 2.0;
     }
+
 
     // Проверка, является ли многоугольник прямоугольником
     bool isRectangle() const {
