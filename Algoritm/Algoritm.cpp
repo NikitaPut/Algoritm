@@ -46,14 +46,29 @@ struct Polygon {
     // Проверка, является ли многоугольник прямоугольником
     bool isRectangle() const {
         if (points.size() != 4) return false;
+
         auto is_right_angle = [](const Point& a, const Point& b, const Point& c) {
             int dx1 = b.x - a.x, dy1 = b.y - a.y;
             int dx2 = c.x - b.x, dy2 = c.y - b.y;
             return (dx1 * dx2 + dy1 * dy2) == 0; // Скалярное произведение равно 0
             };
-        return is_right_angle(points[0], points[1], points[2]) &&
+
+        // Проверка на прямые углы
+        bool right_angles = is_right_angle(points[0], points[1], points[2]) &&
             is_right_angle(points[1], points[2], points[3]) &&
             is_right_angle(points[2], points[3], points[0]);
+
+        // Дополнительная проверка: длины противоположных сторон должны быть равны
+        auto distance_squared = [](const Point& p1, const Point& p2) {
+            int dx = p2.x - p1.x;
+            int dy = p2.y - p1.y;
+            return dx * dx + dy * dy; // Квадрат длины отрезка
+            };
+
+        bool equal_sides = (distance_squared(points[0], points[1]) == distance_squared(points[2], points[3])) &&
+            (distance_squared(points[1], points[2]) == distance_squared(points[3], points[0]));
+
+        return right_angles && equal_sides;
     }
 };
 
