@@ -44,7 +44,6 @@ struct Polygon {
         return std::abs(sum) / 2.0;
     }
 
-
     // Проверка, является ли многоугольник прямоугольником
     bool isRectangle() const {
         if (points.size() != 4) return false;
@@ -73,6 +72,56 @@ struct Polygon {
         return right_angles && equal_sides;
     }
 };
+
+// Функция для определения ориентации трёх точек (p, q, r)
+int orientation(const Point& p, const Point& q, const Point& r) {
+    int val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    if (val == 0) return 0;  // Коллинеарны
+    return (val > 0) ? 1 : 2; // По часовой или против часовой
+}
+
+// Функция для проверки, находится ли точка q на отрезке pr
+bool onSegment(const Point& p, const Point& q, const Point& r) {
+    return (q.x <= std::max(p.x, r.x) && q.x >= std::min(p.x, r.x) &&
+        q.y <= std::max(p.y, r.y) && q.y >= std::min(p.y, r.y));
+}
+
+// Проверка пересечения двух отрезков p1q1 и p2q2
+bool doIntersect(const Point& p1, const Point& q1, const Point& p2, const Point& q2) {
+    int o1 = orientation(p1, q1, p2);
+    int o2 = orientation(p1, q1, q2);
+    int o3 = orientation(p2, q2, p1);
+    int o4 = orientation(p2, q2, q1);
+
+    if (o1 != o2 && o3 != o4) return true;
+
+    if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+
+    return false;
+}
+
+// Основная функция для проверки пересечения двух многоугольников
+bool checkIntersection(const Polygon& poly1, const Polygon& poly2) {
+    int n1 = poly1.points.size();
+    int n2 = poly2.points.size();
+
+    // Используем std::any_of для проверки пересечений ребер
+    return std::any_of(poly1.points.begin(), poly1.points.end(), [&](const Point& p1) {
+        int i = &p1 - &poly1.points[0];  // Индекс точки
+        Point q1 = poly1.points[(i + 1) % n1];
+
+        // Проверяем пересечение с каждым ребром второго многоугольника
+        return std::any_of(poly2.points.begin(), poly2.points.end(), [&](const Point& p2) {
+            int j = &p2 - &poly2.points[0];  // Индекс точки
+            Point q2 = poly2.points[(j + 1) % n2];
+
+            return doIntersect(p1, q1, p2, q2);  // Проверка пересечения двух ребер
+            });
+        });
+}
 
 // Функция для чтения многоугольника из ввода
 Polygon readPolygonFromInput() {
@@ -318,14 +367,6 @@ void inFrame(const std::vector<Polygon>& polygons, const Polygon& target) {
         });
 
     std::cout << (inside ? "<TRUE>" : "<FALSE>") << "\n";
-}
-
-// Определение пересечений фигур требует сложной геометрии (определение пересечения двух многоугольников).
-// Можно применить стандартную реализацию через библиотеку или написать проверку пересечения линий.
-bool checkIntersection(const Polygon& poly1, const Polygon& poly2) {
-    // Для простоты тут реализован заглушечный вариант, который всегда возвращает false.
-    // Для полной реализации нужно проверить пересечения рёбер двух многоугольников.
-    return false;
 }
 
 void intersections(const std::vector<Polygon>& polygons, const Polygon& target) {
